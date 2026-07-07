@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'rest_framework',
     'rest_framework_simplejwt',
+    'apps.incidents',
 ]
 
 MIDDLEWARE = [
