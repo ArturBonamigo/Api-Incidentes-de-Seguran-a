@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Incident
+from .models import Incident, IncidentComment
 
 
 class IncidentSerializer(serializers.ModelSerializer):
@@ -71,3 +71,35 @@ class IncidentSerializer(serializers.ModelSerializer):
                 })
 
         return attrs
+
+class IncidentCommentSerializer(serializers.ModelSerializer):
+
+    incidente_titulo = serializers.CharField(
+        source='incidente.titulo',
+        read_only=True
+    )
+
+    usuario_username = serializers.CharField(
+        source='usuario.username',
+        read_only=True
+    )
+
+    class Meta:
+        model = IncidentComment
+        fields = (
+            'id',
+            'incidente',
+            'incidente_titulo',
+            'usuario',
+            'usuario_username',
+            'comentario',
+            'criado_em',
+        )
+        read_only_fields = (
+            'id',
+            'incidente',
+            'incidente_titulo',
+            'usuario',
+            'usuario_username',
+            'criado_em',
+        )

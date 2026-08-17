@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Incident    
+from .models import Incident, IncidentComment   
 
 @admin.register(Incident)
 class IncidentAdmin(admin.ModelAdmin):
@@ -33,4 +33,30 @@ class IncidentAdmin(admin.ModelAdmin):
         'data_abertura',
         'data_atualizacao',
         'data_fechamento',
+    )
+
+@admin.register(IncidentComment)
+class IncidentCommentAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'incidente',
+        'usuario',
+        'comentario',
+        'criado_em',
+    )
+
+    list_filter = (
+        'incidente',
+        'usuario',
+        'criado_em',
+    )
+
+    search_fields = (
+        'comentario',
+        'usuario__username',
+        'incidente__titulo',
+    )
+
+    readonly_fields = (
+        'criado_em',
     )

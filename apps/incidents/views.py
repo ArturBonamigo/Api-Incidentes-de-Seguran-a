@@ -1,4 +1,6 @@
-from rest_framework import viewsets
+from django.shortcuts import get_object_or_404
+
+from rest_framework import permissions, viewsets
 
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -6,9 +8,9 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.audit.models import IncidentTimeline
 
-from .models import Incident
+from .models import Incident, IncidentComment
 from .permissions import CanAccessIncident
-from .serializers import IncidentSerializer
+from .serializers import IncidentSerializer, IncidentCommentSerializer
 
 
 class IncidentViewSet(viewsets.ModelViewSet):
@@ -115,4 +117,46 @@ class IncidentViewSet(viewsets.ModelViewSet):
             acao=IncidentTimeline.Acao.INCIDENTE_CRIADO,
             descricao='Incidente criado.',
             valor_novo=incident.status,
+        )
+
+class IncidentCommentViewSet(viewsets.ModelViewSet):
+    serializer_class = IncidentCommentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'post', 'head', 'options']
+
+    def user_can_access_incident(self, user, incident):
+        return (
+            user.is_superuser
+            or user.perfil in ['ADMIN', 'ANALISTA_SOC', 'GESTOR', 'AUDITOR']
+            or incident.usuario_reportante == user
+        )
+
+    def get_incident(self):
+        incident = get_object_or_404(Incident, pk=self.kwargs.get('incident_id'))
+        user = self.request.user
+
+        if not self.user_can_access_incident(user, incident):
+            raise PermissionDenied('Voce nao tem permissao para acessar este incidente.')
+
+        return incident
+
+    def get_queryset(self):
+        incident = self.get_incident()
+        return IncidentComment.objects.filter(incidente=incident)
+
+    def perform_create(self, serializer):
+        user = self.request.user
+
+        if user.perfil == 'AUDITOR':
+            raise PermissionDenied('Auditor nao pode adicionar comentarios.')
+
+        incident = self.get_incident()
+        comment = serializer.save(incidente=incident, usuario=user)
+
+        IncidentTimeline.objects.create(
+            incidente=incident,
+            usuario=user,
+            acao=IncidentTimeline.Acao.COMENTARIO_ADICIONADO,
+            descricao=f'Comentario adicionado por {user.username}.',
+            valor_novo=comment.comentario,
         )

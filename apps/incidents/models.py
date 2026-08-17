@@ -91,3 +91,27 @@ class Incident(models.Model):
 
     def __str__(self):
         return self.titulo
+
+class IncidentComment(models.Model):
+    incidente = models.ForeignKey(
+        Incident,
+        on_delete=models.CASCADE,
+        related_name='comentarios'
+    )
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='comentarios_incidentes'
+    )
+
+    comentario = models.TextField()
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['criado_em']
+
+    def __str__(self):
+        return f'Comentário de {self.usuario} em {self.incidente}'
