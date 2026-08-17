@@ -6,6 +6,7 @@ class IncidentTimeline(models.Model):
         INCIDENTE_CRIADO = 'INCIDENTE_CRIADO', 'Incidente criado'
         STATUS_ALTERADO = 'STATUS_ALTERADO', 'Status alterado'
         ANALISTA_ATRIBUIDO = 'ANALISTA_ATRIBUIDO', 'Analista atribuído'
+        COMENTARIO_ADICIONADO = 'COMENTARIO_ADICIONADO', 'Comentario adicionado'
         CRITICIDADE_ALTERADA = 'CRITICIDADE_ALTERADA', 'Criticidade alterada'
         INCIDENTE_ENCERRADO = 'INCIDENTE_ENCERRADO', 'Incidente encerrado'
         INCIDENTE_CANCELADO = 'INCIDENTE_CANCELADO', 'Incidente cancelado'
