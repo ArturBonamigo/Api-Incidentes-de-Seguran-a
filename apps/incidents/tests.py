@@ -74,7 +74,7 @@ class IncidentFiltersTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        ids_retornados = {item['id'] for item in response.data}
+        ids_retornados = {item['id'] for item in response.data['results']}
 
         self.assertEqual(ids_retornados, {self.incidente_sensivel.id})
 
@@ -94,7 +94,7 @@ class IncidentFiltersTests(APITestCase):
 
         response = self.client.get('/api/incidentes/')
 
-        ids_retornados = {item['id'] for item in response.data}
+        ids_retornados = {item['id'] for item in response.data['results']}
 
         self.assertEqual(
             ids_retornados,
@@ -111,7 +111,7 @@ class IncidentFiltersTests(APITestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        ids_retornados = {item['id'] for item in response.data}
+        ids_retornados = {item['id'] for item in response.data['results']}
 
         self.assertEqual(ids_retornados, {self.incidente_sensivel.id})
 
@@ -128,3 +128,45 @@ class IncidentFiltersTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('data_abertura_fim', response.data)
+
+    def test_pagina_resultados_em_paginas_de_20_itens(self):
+        self.client.force_authenticate(user=self.usuario_a)
+
+        for indice in range(19):
+            Incident.objects.create(
+                titulo=f'Incidente {indice}',
+                descricao='Descricao do incidente.',
+                tipo_incidente=Incident.TipoIncidente.FALHA_SISTEMA,
+                impacto=1,
+                urgencia=1,
+                envolve_dados_sensiveis=False,
+                status=Incident.Status.ABERTO,
+                usuario_reportante=self.usuario_a,
+            )
+
+        primeira_pagina = self.client.get('/api/incidentes/', {'page': 1})
+
+        self.assertEqual(primeira_pagina.status_code, status.HTTP_200_OK)
+        self.assertEqual(primeira_pagina.data['count'], 21)
+        self.assertEqual(len(primeira_pagina.data['results']), 20)
+        self.assertIsNotNone(primeira_pagina.data['next'])
+        self.assertIsNone(primeira_pagina.data['previous'])
+
+        segunda_pagina = self.client.get('/api/incidentes/', {'page': 2})
+
+        self.assertEqual(segunda_pagina.status_code, status.HTTP_200_OK)
+        self.assertEqual(segunda_pagina.data['count'], 21)
+        self.assertEqual(len(segunda_pagina.data['results']), 1)
+        self.assertIsNone(segunda_pagina.data['next'])
+        self.assertIsNotNone(segunda_pagina.data['previous'])
+
+        pagina_inexistente = self.client.get(
+            '/api/incidentes/',
+            {'page': 3},
+        )
+
+        self.assertEqual(
+            pagina_inexistente.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertIn('detail', pagina_inexistente.data)
