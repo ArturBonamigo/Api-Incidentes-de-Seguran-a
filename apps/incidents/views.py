@@ -9,9 +9,11 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from apps.audit.models import IncidentTimeline
 
 from .models import Incident, IncidentComment
+from django.db.models import Q
 from .permissions import CanAccessIncident
 from .serializers import IncidentSerializer, IncidentCommentSerializer
 
+from django.utils.dateparse import parse_date
 
 class IncidentViewSet(viewsets.ModelViewSet):
     serializer_class = IncidentSerializer
@@ -38,6 +40,70 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = Incident.objects.all().order_by('-data_abertura')
+
+        params = self.request.query_params
+
+        data_abertura_inicio = params.get('data_abertura_inicio')
+        data_abertura_fim = params.get('data_abertura_fim')
+
+        status = params.get('status')
+        criticidade = params.get('criticidade')
+        tipo_incidente = params.get('tipo_incidente')
+        envolve_dados_sensiveis = params.get('envolve_dados_sensiveis')
+
+        if status and status not in Incident.Status.values:
+            raise ValidationError({'status': 'Status invalido.'})
+
+        if criticidade and criticidade not in Incident.Criticidade.values:
+            raise ValidationError({'criticidade': 'Criticidade invalida.'})
+
+        if tipo_incidente and tipo_incidente not in Incident.TipoIncidente.values:
+            raise ValidationError({'tipo_incidente': 'Tipo de incidente invalido.'})
+
+        if envolve_dados_sensiveis and envolve_dados_sensiveis not in ['true', 'false']:
+            raise ValidationError({'envolve_dados_sensiveis': 'Valor invalido. Use true ou false.'})
+
+        if status:
+            queryset = queryset.filter(status=status)
+
+        if criticidade:
+            queryset = queryset.filter(criticidade=criticidade)
+
+        if tipo_incidente:
+            queryset = queryset.filter(tipo_incidente=tipo_incidente)
+
+        if envolve_dados_sensiveis:
+            envolve_dados_sensiveis_bool = envolve_dados_sensiveis.lower() == 'true'
+            queryset = queryset.filter(envolve_dados_sensiveis=envolve_dados_sensiveis_bool)
+
+        if data_abertura_inicio:
+            data_abertura_inicio = parse_date(data_abertura_inicio)
+
+            if not data_abertura_inicio:
+                raise ValidationError({'data_abertura_inicio': 'Data de abertura inicio invalida. Use o formato YYYY-MM-DD.'})
+            
+            queryset = queryset.filter(data_abertura__date__gte=data_abertura_inicio)
+
+        if data_abertura_fim:
+            data_abertura_fim = parse_date(data_abertura_fim)
+
+            if not data_abertura_fim:
+                raise ValidationError({'data_abertura_fim': 'Data de abertura fim invalida. Use o formato YYYY-MM-DD.'})
+
+            if data_abertura_fim is not None and data_abertura_inicio is not None and data_abertura_fim < data_abertura_inicio:
+                raise ValidationError({'data_abertura_fim': 'Data de abertura fim nao pode ser menor que a data de abertura inicio.'})
+
+            queryset = queryset.filter(data_abertura__date__lte=data_abertura_fim)
+
+        search = params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(titulo__icontains=search)
+                | Q(usuario_reportante__username__icontains=search)
+                | Q(analista_responsavel__username__icontains=search)
+                | Q(descricao__icontains=search)
+            )
+
 
         if user.is_superuser or user.perfil in [
             'ADMIN',
