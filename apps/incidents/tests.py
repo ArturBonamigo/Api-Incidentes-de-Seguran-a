@@ -101,6 +101,65 @@ class IncidentFiltersTests(APITestCase):
             {self.incidente_sensivel.id, self.incidente_nao_sensivel.id},
         )
 
+    def test_ordena_por_mais_recentes_por_padrao(self):
+        self.client.force_authenticate(user=self.usuario_a)
+
+        response = self.client.get('/api/incidentes/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        ids_retornados = [item['id'] for item in response.data['results']]
+
+        self.assertEqual(
+            ids_retornados,
+            [self.incidente_nao_sensivel.id, self.incidente_sensivel.id],
+        )
+
+    def test_ordena_por_mais_recentes(self):
+        self.client.force_authenticate(user=self.usuario_a)
+
+        response = self.client.get(
+            '/api/incidentes/',
+            {'ordenar_por': 'mais_recentes'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        ids_retornados = [item['id'] for item in response.data['results']]
+
+        self.assertEqual(
+            ids_retornados,
+            [self.incidente_nao_sensivel.id, self.incidente_sensivel.id],
+        )
+
+    def test_ordena_por_mais_antigos(self):
+        self.client.force_authenticate(user=self.usuario_a)
+
+        response = self.client.get(
+            '/api/incidentes/',
+            {'ordenar_por': 'mais_antigos'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        ids_retornados = [item['id'] for item in response.data['results']]
+
+        self.assertEqual(
+            ids_retornados,
+            [self.incidente_sensivel.id, self.incidente_nao_sensivel.id],
+        )
+
+    def test_rejeita_ordenacao_invalida(self):
+        self.client.force_authenticate(user=self.usuario_a)
+
+        response = self.client.get(
+            '/api/incidentes/',
+            {'ordenar_por': 'data_abertura'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('ordenar_por', response.data)
+
     def test_filtra_por_data_fim(self):
         self.client.force_authenticate(user=self.usuario_a)
 
