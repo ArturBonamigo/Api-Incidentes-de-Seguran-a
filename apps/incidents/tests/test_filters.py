@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Incident
+from apps.incidents.models import Incident
 
 
 class IncidentFiltersTests(APITestCase):
@@ -34,7 +34,6 @@ class IncidentFiltersTests(APITestCase):
             status=Incident.Status.ABERTO,
             usuario_reportante=cls.usuario_a,
         )
-
         cls.incidente_nao_sensivel = Incident.objects.create(
             titulo='Falha em sistema interno',
             descricao='Sistema indisponivel.',
@@ -45,8 +44,7 @@ class IncidentFiltersTests(APITestCase):
             status=Incident.Status.RESOLVIDO,
             usuario_reportante=cls.usuario_a,
         )
-
-        cls.incidente_outro_usuario = Incident.objects.create(
+        Incident.objects.create(
             titulo='Malware detectado',
             descricao='Arquivo malicioso.',
             tipo_incidente=Incident.TipoIncidente.MALWARE,
@@ -66,123 +64,70 @@ class IncidentFiltersTests(APITestCase):
 
     def test_filtra_por_dados_sensiveis_true(self):
         self.client.force_authenticate(user=self.usuario_a)
-
-        response = self.client.get(
-            '/api/incidentes/',
-            {'envolve_dados_sensiveis': 'true'},
-        )
+        response = self.client.get('/api/incidentes/', {'envolve_dados_sensiveis': 'true'})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         ids_retornados = {item['id'] for item in response.data['results']}
-
         self.assertEqual(ids_retornados, {self.incidente_sensivel.id})
 
     def test_rejeita_valor_invalido_para_dados_sensiveis(self):
         self.client.force_authenticate(user=self.usuario_a)
-
-        response = self.client.get(
-            '/api/incidentes/',
-            {'envolve_dados_sensiveis': 'talvez'},
-        )
+        response = self.client.get('/api/incidentes/', {'envolve_dados_sensiveis': 'talvez'})
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('envolve_dados_sensiveis', response.data)
 
     def test_usuario_comum_ve_apenas_os_proprios_incidentes(self):
         self.client.force_authenticate(user=self.usuario_a)
-
         response = self.client.get('/api/incidentes/')
 
         ids_retornados = {item['id'] for item in response.data['results']}
-
-        self.assertEqual(
-            ids_retornados,
-            {self.incidente_sensivel.id, self.incidente_nao_sensivel.id},
-        )
+        self.assertEqual(ids_retornados, {self.incidente_sensivel.id, self.incidente_nao_sensivel.id})
 
     def test_ordena_por_mais_recentes_por_padrao(self):
         self.client.force_authenticate(user=self.usuario_a)
-
         response = self.client.get('/api/incidentes/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         ids_retornados = [item['id'] for item in response.data['results']]
-
-        self.assertEqual(
-            ids_retornados,
-            [self.incidente_nao_sensivel.id, self.incidente_sensivel.id],
-        )
+        self.assertEqual(ids_retornados, [self.incidente_nao_sensivel.id, self.incidente_sensivel.id])
 
     def test_ordena_por_mais_recentes(self):
         self.client.force_authenticate(user=self.usuario_a)
-
-        response = self.client.get(
-            '/api/incidentes/',
-            {'ordenar_por': 'mais_recentes'},
-        )
+        response = self.client.get('/api/incidentes/', {'ordenar_por': 'mais_recentes'})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         ids_retornados = [item['id'] for item in response.data['results']]
-
-        self.assertEqual(
-            ids_retornados,
-            [self.incidente_nao_sensivel.id, self.incidente_sensivel.id],
-        )
+        self.assertEqual(ids_retornados, [self.incidente_nao_sensivel.id, self.incidente_sensivel.id])
 
     def test_ordena_por_mais_antigos(self):
         self.client.force_authenticate(user=self.usuario_a)
-
-        response = self.client.get(
-            '/api/incidentes/',
-            {'ordenar_por': 'mais_antigos'},
-        )
+        response = self.client.get('/api/incidentes/', {'ordenar_por': 'mais_antigos'})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         ids_retornados = [item['id'] for item in response.data['results']]
-
-        self.assertEqual(
-            ids_retornados,
-            [self.incidente_sensivel.id, self.incidente_nao_sensivel.id],
-        )
+        self.assertEqual(ids_retornados, [self.incidente_sensivel.id, self.incidente_nao_sensivel.id])
 
     def test_rejeita_ordenacao_invalida(self):
         self.client.force_authenticate(user=self.usuario_a)
-
-        response = self.client.get(
-            '/api/incidentes/',
-            {'ordenar_por': 'data_abertura'},
-        )
+        response = self.client.get('/api/incidentes/', {'ordenar_por': 'data_abertura'})
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('ordenar_por', response.data)
 
     def test_filtra_por_data_fim(self):
         self.client.force_authenticate(user=self.usuario_a)
+        response = self.client.get('/api/incidentes/', {'data_abertura_fim': '2026-07-01'})
 
-        response = self.client.get(
-            '/api/incidentes/',
-            {'data_abertura_fim': '2026-07-01'},
-        )
-        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         ids_retornados = {item['id'] for item in response.data['results']}
-
         self.assertEqual(ids_retornados, {self.incidente_sensivel.id})
 
     def test_rejeita_data_fim_menor_que_data_inicio(self):
         self.client.force_authenticate(user=self.usuario_a)
-
         response = self.client.get(
             '/api/incidentes/',
-            {
-                'data_abertura_inicio': '2026-07-10',
-                'data_abertura_fim': '2026-07-01',
-            },
+            {'data_abertura_inicio': '2026-07-10', 'data_abertura_fim': '2026-07-01'},
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -190,7 +135,6 @@ class IncidentFiltersTests(APITestCase):
 
     def test_pagina_resultados_em_paginas_de_20_itens(self):
         self.client.force_authenticate(user=self.usuario_a)
-
         for indice in range(19):
             Incident.objects.create(
                 titulo=f'Incidente {indice}',
@@ -204,7 +148,6 @@ class IncidentFiltersTests(APITestCase):
             )
 
         primeira_pagina = self.client.get('/api/incidentes/', {'page': 1})
-
         self.assertEqual(primeira_pagina.status_code, status.HTTP_200_OK)
         self.assertEqual(primeira_pagina.data['count'], 21)
         self.assertEqual(len(primeira_pagina.data['results']), 20)
@@ -212,20 +155,12 @@ class IncidentFiltersTests(APITestCase):
         self.assertIsNone(primeira_pagina.data['previous'])
 
         segunda_pagina = self.client.get('/api/incidentes/', {'page': 2})
-
         self.assertEqual(segunda_pagina.status_code, status.HTTP_200_OK)
         self.assertEqual(segunda_pagina.data['count'], 21)
         self.assertEqual(len(segunda_pagina.data['results']), 1)
         self.assertIsNone(segunda_pagina.data['next'])
         self.assertIsNotNone(segunda_pagina.data['previous'])
 
-        pagina_inexistente = self.client.get(
-            '/api/incidentes/',
-            {'page': 3},
-        )
-
-        self.assertEqual(
-            pagina_inexistente.status_code,
-            status.HTTP_404_NOT_FOUND,
-        )
+        pagina_inexistente = self.client.get('/api/incidentes/', {'page': 3})
+        self.assertEqual(pagina_inexistente.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn('detail', pagina_inexistente.data)
