@@ -39,7 +39,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Incident.objects.all().order_by('-data_abertura')
+        queryset = Incident.objects.all()
 
         params = self.request.query_params
 
@@ -104,16 +104,24 @@ class IncidentViewSet(viewsets.ModelViewSet):
                 | Q(descricao__icontains=search)
             )
 
+        if not (
+            user.is_superuser
+            or user.perfil in ['ADMIN', 'ANALISTA_SOC', 'GESTOR', 'AUDITOR']
+        ):
+            queryset = queryset.filter(usuario_reportante=user)
 
-        if user.is_superuser or user.perfil in [
-            'ADMIN',
-            'ANALISTA_SOC',
-            'GESTOR',
-            'AUDITOR',
-        ]:
-            return queryset
+        ordenar_por = params.get('ordenar_por')
 
-        return queryset.filter(usuario_reportante=user)
+        ordenacoes = {
+            None: '-data_abertura',
+            'mais_recentes': '-data_abertura',
+            'mais_antigos': 'data_abertura',
+        }
+
+        if ordenar_por not in ordenacoes:
+            raise ValidationError({'ordenar_por': 'Valor invalido. Use mais_recentes ou mais_antigos'})
+
+        return queryset.order_by(ordenacoes[ordenar_por])
     
     @action(detail=True, methods=['post'], url_path='assumir')
     def assumir(self, request, pk=None):
