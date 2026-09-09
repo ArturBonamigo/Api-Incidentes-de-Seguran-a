@@ -10,7 +10,18 @@ npm install
 npm run dev
 ```
 
-Crie um arquivo `.env` com base em `.env.example` se a API estiver em outra URL.
+O proxy de desenvolvimento encaminha `/api` para `http://127.0.0.1:8000`.
+Para configuração completa, funcionalidades e validação com dados descartáveis,
+consulte o [README do projeto](../README.md).
+
+## Verificação
+
+```bash
+npm run build
+```
+
+O build valida os tipos TypeScript e gera a versão de produção. Use `npm run format`
+para formatar o código com Prettier.
 
 ## Estrutura
 

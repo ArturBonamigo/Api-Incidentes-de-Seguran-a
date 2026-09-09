@@ -39,7 +39,7 @@ export function RegisterPage() {
   }
 
   return (
-    <main className="auth-page">
+    <main className="auth-page auth-register">
       <form className="auth-panel" onSubmit={handleSubmit}>
         <div>
           <p className="eyebrow">Nova conta</p>
@@ -48,7 +48,7 @@ export function RegisterPage() {
 
         {error ? <p className="form-error">{error}</p> : null}
 
-        <Field label="Usuario">
+        <Field label="Usuário">
           <TextInput value={form.username} onChange={(event) => updateField("username", event.target.value)} required />
         </Field>
 
@@ -88,7 +88,7 @@ export function RegisterPage() {
         </Button>
 
         <p className="muted">
-          Ja tem conta? <Link to="/login">Entrar</Link>
+          Já tem conta? <Link to="/login">Entrar</Link>
         </p>
       </form>
     </main>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../auth/useAuth";
 
 import * as incidentsApi from "../../../api/incidents.api";
 import { ApiError } from "../../../types/api";
@@ -7,6 +8,7 @@ import { IncidentCreateRequest } from "../../../types/incident";
 import { IncidentForm } from "../components/IncidentForm";
 
 export function NewIncidentPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,12 +27,15 @@ export function NewIncidentPage() {
     }
   }
 
+  if (user?.perfil === "AUDITOR") return <p className="screen-message">Auditores possuem acesso somente leitura.</p>;
+
   return (
     <section className="page-stack narrow">
       <div className="page-header">
         <div>
           <p className="eyebrow">Registro</p>
           <h1>Novo incidente</h1>
+          <p>Registre os fatos. A prioridade é calculada a partir do impacto e da urgência.</p>
         </div>
       </div>
 

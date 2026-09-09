@@ -1,372 +1,389 @@
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, ChevronRight, Clock3, Plus } from "lucide-react";
-
-import * as incidentsApi from "../../../api/incidents.api";
-import { ApiError } from "../../../types/api";
-import { Incident, IncidentSeverity, IncidentStats } from "../../../types/incident";
+import {
+  Activity,
+  ArrowDownRight,
+  ArrowUpRight,
+  CheckCheck,
+  ChevronRight,
+  Crosshair,
+  Plus,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
+import * as api from "../../../api/incidents.api";
+import { useAuth } from "../../../auth/useAuth";
+import { IncidentStats } from "../../../types/incident";
 import { formatDateTime } from "../../../utils/format";
-import { incidentTypeLabels, severityLabels, statusLabels } from "../constants";
+import { incidentTypeLabels, severityOptions } from "../constants";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { StatusBadge } from "../components/StatusBadge";
-
-const severityMeta: Array<{
-  key: IncidentSeverity;
-  label: string;
-  className: string;
-}> = [
-  { key: "CRITICA", label: "Critical", className: "critical" },
-  { key: "ALTA", label: "High", className: "high" },
-  { key: "MEDIA", label: "Medium", className: "medium" },
-  { key: "BAIXA", label: "Low", className: "low" }
-];
-
-const sourceByType: Record<Incident["tipo_incidente"], string> = {
-  PHISHING: "Email Gateway",
-  MALWARE: "EDR",
-  ACESSO_INDEVIDO: "SIEM",
-  VAZAMENTO_DADOS: "DLP",
-  FALHA_SISTEMA: "Infrastructure",
-  COMPORTAMENTO_SUSPEITO: "Network Monitor",
-  OUTRO: "SOC Console"
-};
-
-const activityPoints = [
-  "0,88 55,78 110,58 165,66 220,44 275,56 330,34 385,46 440,30 495,48 550,38 605,20 660,33",
-  "0,94 55,84 110,70 165,76 220,62 275,70 330,54 385,66 440,52 495,63 550,50 605,36 660,46",
-  "0,100 55,92 110,82 165,88 220,76 275,82 330,68 385,76 440,66 495,72 550,62 605,54 660,60",
-  "0,106 55,100 110,92 165,96 220,88 275,92 330,84 385,88 440,80 495,86 550,78 605,70 660,76"
-];
-
-function formatIncidentCode(id: number) {
-  return `INC-2026-${String(id).padStart(4, "0")}`;
-}
-
-function getResolvedRate(stats: IncidentStats) {
-  return stats.total ? Math.round((stats.encerrados / stats.total) * 1000) / 10 : 0;
-}
-
-function getThreatScore(stats: IncidentStats) {
-  const critical = stats.por_criticidade.CRITICA ?? 0;
-  const high = stats.por_criticidade.ALTA ?? 0;
-  const open = stats.abertos;
-  const rawScore = stats.total
-    ? ((critical * 100 + high * 72 + open * 38) / Math.max(stats.total, 1))
-    : 0;
-
-  return Math.min(100, Math.round(rawScore));
-}
-
 export function DashboardPage() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<IncidentStats | null>(null);
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-
+  const [revision, setRevision] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [updated, setUpdated] = useState<Date>();
   useEffect(() => {
-    async function loadStats() {
-      setIsLoading(true);
-      setError("");
-
-      try {
-        setStats(await incidentsApi.getIncidentStats());
-      } catch (err) {
-        setError(err instanceof ApiError ? err.message : "Nao foi possivel carregar o painel.");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    void loadStats();
-  }, []);
-
-  const dashboardModel = useMemo(() => {
-    if (!stats) {
-      return null;
-    }
-
-    const critical = stats.por_criticidade.CRITICA ?? 0;
-    const high = stats.por_criticidade.ALTA ?? 0;
-    const medium = stats.por_criticidade.MEDIA ?? 0;
-    const low = stats.por_criticidade.BAIXA ?? 0;
-    const resolvedRate = getResolvedRate(stats);
-    const threatScore = getThreatScore(stats);
-    const totalSeverity = Math.max(critical + high + medium + low, 1);
-    const criticalPercent = (critical / totalSeverity) * 100;
-    const highPercent = (high / totalSeverity) * 100;
-    const mediumPercent = (medium / totalSeverity) * 100;
-    const lowPercent = Math.max(0, 100 - criticalPercent - highPercent - mediumPercent);
-
-    return {
-      critical,
-      high,
-      medium,
-      low,
-      resolvedRate,
-      threatScore,
-      donutStyle: {
-        "--critical": `${criticalPercent}%`,
-        "--high": `${criticalPercent + highPercent}%`,
-        "--medium": `${criticalPercent + highPercent + mediumPercent}%`
-      } as CSSProperties,
-      severityRows: [
-        { label: "Critical", value: critical, percent: criticalPercent, className: "critical" },
-        { label: "High", value: high, percent: highPercent, className: "high" },
-        { label: "Medium", value: medium, percent: mediumPercent, className: "medium" },
-        { label: "Low", value: low, percent: lowPercent, className: "low" }
-      ]
+    let active = true;
+    setLoading(true);
+    setError("");
+    api
+      .getIncidentStats()
+      .then((data) => {
+        if (active) {
+          setStats(data);
+          setUpdated(new Date());
+        }
+      })
+      .catch((err) => {
+        if (active)
+          setError(err.message || "Não foi possível carregar o painel.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
     };
-  }, [stats]);
-
-  if (isLoading) {
-    return <p className="screen-message">Carregando painel...</p>;
-  }
-
-  if (error || !stats || !dashboardModel) {
-    return <p className="form-error">{error || "Painel indisponivel."}</p>;
-  }
-
-  const primaryIncident = stats.recentes[0];
-
+  }, [revision]);
+  const rate = stats?.total
+    ? Math.round((stats.encerrados / stats.total) * 100)
+    : 0;
+  const max = Math.max(1, ...(stats?.atividade.map((d) => d.total) ?? []));
   return (
-    <section className="soc-dashboard">
-      <div className="page-header dashboard-header">
+    <section className="page-stack">
+      <div className="page-header">
         <div>
-          <p className="eyebrow">Security Overview</p>
-          <h1>Security Overview</h1>
-          <span>Real-time insights and security posture</span>
+          <p className="eyebrow">
+            <span className="eyebrow-line" /> CENTRAL DE OPERAÇÕES
+          </p>
+          <h1>
+            Visão geral<span className="heading-dot">.</span>
+          </h1>
+          <p>A informação certa para a sua próxima decisão.</p>
         </div>
-        <div className="dashboard-actions">
-          <button className="button button-secondary" type="button">
-            <CalendarDays size={15} aria-hidden="true" />
-            Last 24 Hours
+        <div className="header-actions">
+          <button
+            className="button button-secondary"
+            disabled={loading}
+            onClick={() => setRevision((v) => v + 1)}
+          >
+            <RefreshCw size={15} className={loading ? "spinning" : ""} />{" "}
+            Atualizar
           </button>
-          <Link className="button button-primary" to="/incidentes/novo">
-            <Plus size={16} aria-hidden="true" />
-            New Incident
-          </Link>
+          {user?.perfil !== "AUDITOR" && (
+            <Link className="button button-primary" to="/incidentes/novo">
+              <Plus size={16} /> Novo incidente
+            </Link>
+          )}
         </div>
       </div>
-
-      <div className="soc-metric-grid">
-        <article className="soc-metric-card metric-purple">
-          <div>
-            <span>Total Incidents</span>
-            <strong>{stats.total.toLocaleString("pt-BR")}</strong>
-            <small>{stats.abertos} open investigations</small>
+      {error && (
+        <p role="alert" className="form-error">
+          {error} Tente atualizar o painel.
+        </p>
+      )}
+      {loading && !stats && (
+        <div className="loading-state">
+          <Activity className="spinning" /> Carregando indicadores…
+        </div>
+      )}
+      {stats && (
+        <>
+          <div className="overview-banner">
+            <div className="banner-symbol">
+              <Crosshair size={30} />
+            </div>
+            <div>
+              <span className="eyebrow">SEU PANORAMA OPERACIONAL</span>
+              <h2>
+                {stats.abertos
+                  ? `${stats.abertos} incidente${stats.abertos === 1 ? "" : "s"} em acompanhamento`
+                  : "Nenhum incidente ativo no momento"}
+              </h2>
+              <p>
+                {stats.ativos_nao_atribuidos
+                  ? `${stats.ativos_nao_atribuidos} aguardando um responsável. Organize a resposta pela prioridade.`
+                  : "Acompanhe a evolução das investigações e os próximos passos da equipe."}
+              </p>
+            </div>
+            <Link to="/incidentes?fila=ativos">
+              Ver fila de trabalho <ArrowUpRight size={18} />
+            </Link>
+            <div className="banner-decoration" aria-hidden="true" />
           </div>
-          <Sparkline tone="purple" />
-        </article>
-
-        <article className="soc-metric-card metric-red">
-          <div>
-            <span>Critical Alerts</span>
-            <strong>{dashboardModel.critical}</strong>
-            <small>{dashboardModel.high} high severity signals</small>
-          </div>
-          <Sparkline tone="red" />
-        </article>
-
-        <article className="soc-metric-card metric-blue">
-          <div>
-            <span>Resolved Rate</span>
-            <strong>{dashboardModel.resolvedRate}%</strong>
-            <small>{stats.encerrados} incidents closed</small>
-          </div>
-          <Sparkline tone="blue" />
-        </article>
-
-        <article className="soc-metric-card metric-purple">
-          <div>
-            <span>Threat Score</span>
-            <strong>{dashboardModel.threatScore}<em>/100</em></strong>
-            <small>{dashboardModel.threatScore >= 70 ? "High Risk" : "Controlled"}</small>
-          </div>
-          <div className="threat-ring" style={{ "--score": `${dashboardModel.threatScore}%` } as CSSProperties}>
-            <span>{dashboardModel.threatScore}</span>
-          </div>
-        </article>
-      </div>
-
-      <div className="dashboard-main-grid">
-        <div className="dashboard-left">
-          <article className="panel activity-panel">
-            <div className="section-header">
-              <div>
-                <h2>Incident Activity Over Time</h2>
-                <p className="muted">Severity trend by operating window</p>
+          <div className="soc-metric-grid">
+            <Link to="/incidentes" className="metric-card">
+              <div className="metric-top">
+                <span>Total de incidentes</span>
+                <Activity size={18} />
               </div>
-              <button className="button button-secondary" type="button">
-                <Clock3 size={15} aria-hidden="true" />
-                Group by: Hour
-              </button>
-            </div>
-            <div className="chart-legend">
-              {severityMeta.map((item) => (
-                <span className={`legend-dot ${item.className}`} key={item.key}>
-                  {item.label}
-                </span>
-              ))}
-            </div>
-            <svg className="activity-chart" viewBox="0 0 680 128" role="img" aria-label="Incident activity chart">
-              <defs>
-                <linearGradient id="criticalArea" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#7C3AED" stopOpacity="0.38" />
-                  <stop offset="100%" stopColor="#7C3AED" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path d={`M ${activityPoints[0]} L 660,128 L 0,128 Z`} fill="url(#criticalArea)" />
-              <polyline className="line critical-line" points={activityPoints[0]} />
-              <polyline className="line high-line" points={activityPoints[1]} />
-              <polyline className="line medium-line" points={activityPoints[2]} />
-              <polyline className="line low-line" points={activityPoints[3]} />
-            </svg>
-          </article>
-
-          <article className="panel">
-            <div className="section-header">
-              <h2>Recent Incidents</h2>
-              <Link className="inline-action" to="/incidentes">View All <ChevronRight size={15} aria-hidden="true" /></Link>
-            </div>
-
-            <div className="table-wrap embedded">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Title</th>
-                    <th>Severity</th>
-                    <th>Status</th>
-                    <th>Source</th>
-                    <th>Owner</th>
-                    <th>Detected At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.recentes.map((incident) => (
-                    <tr key={incident.id}>
-                      <td className="mono">{formatIncidentCode(incident.id)}</td>
-                      <td>
-                        <strong>{incident.titulo}</strong>
-                        <span>{incidentTypeLabels[incident.tipo_incidente]}</span>
-                      </td>
-                      <td>
-                        <SeverityBadge severity={incident.criticidade} />
-                      </td>
-                      <td>
-                        <StatusBadge status={incident.status} />
-                      </td>
-                      <td>{sourceByType[incident.tipo_incidente]}</td>
-                      <td>{incident.analista_responsavel ? `Analyst #${incident.analista_responsavel}` : "Unassigned"}</td>
-                      <td>{formatDateTime(incident.data_abertura)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {!stats.recentes.length ? <p className="screen-message">No recent incidents found.</p> : null}
-          </article>
-
-          <div className="visual-grid">
-            <article className="panel map-panel">
-              <h2>Attack Origin Map</h2>
-              <div className="map-visual" aria-label="Attack origin map">
-                <span className="map-dot dot-us" />
-                <span className="map-dot dot-eu" />
-                <span className="map-dot dot-cn" />
-                <span className="map-dot dot-ru" />
-                <span className="map-line line-us" />
-                <span className="map-line line-eu" />
-                <span className="map-line line-cn" />
-                <span className="map-line line-ru" />
+              <strong>{stats.total}</strong>
+              <small>
+                <span className="metric-neutral">Base completa</span> registros
+                visíveis ao seu perfil
+              </small>
+            </Link>
+            <Link
+              to="/incidentes?fila=ativos&criticidade=CRITICA"
+              className="metric-card"
+            >
+              <div className="metric-top">
+                <span>Críticos em aberto</span>
+                <ShieldAlert size={18} className="danger-text" />
               </div>
-              <div className="map-list">
-                <span><i className="legend-dot critical" /> United States</span>
-                <span><i className="legend-dot high" /> Netherlands</span>
-                <span><i className="legend-dot medium" /> China</span>
-                <span><i className="legend-dot low" /> Russian Federation</span>
+              <strong>
+                {stats.criticos_ativos}
+                <span className="metric-indicator danger" />
+              </strong>
+              <small>
+                <span className="danger-text">Prioridade máxima</span> na fila
+                de resposta
+              </small>
+            </Link>
+            <Link to="/incidentes?fila=nao_atribuidos" className="metric-card">
+              <div className="metric-top">
+                <span>Aguardando responsável</span>
+                <Users size={18} />
               </div>
-            </article>
-
-            <article className="panel endpoint-panel">
-              <h2>Endpoint Activity Graph</h2>
-              <div className="endpoint-graph">
-                <div className="endpoint-node endpoint-center">
-                  <strong>WS-23-019</strong>
-                  <span>Endpoint</span>
+              <strong>{stats.ativos_nao_atribuidos}</strong>
+              <small>
+                <span className="warning-text">Triagem</span> incidentes ativos
+                sem analista
+              </small>
+            </Link>
+            <Link to="/incidentes" className="metric-card">
+              <div className="metric-top">
+                <span>Taxa de encerramento</span>
+                <CheckCheck size={18} />
+              </div>
+              <strong>
+                {rate}
+                <em>%</em>
+              </strong>
+              <small>
+                <ArrowDownRight size={13} /> {stats.encerrados} resolvidos,
+                cancelados ou falsos positivos
+              </small>
+            </Link>
+          </div>
+          <div className="dashboard-main-grid">
+            <article className="panel activity-panel">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">EVOLUÇÃO</p>
+                  <h2>Atividade de incidentes</h2>
                 </div>
-                <div className="endpoint-node node-a"><strong>WIN-10-44</strong><span>10.0.0.44</span></div>
-                <div className="endpoint-node node-b"><strong>SRV-APP-02</strong><span>10.0.1.22</span></div>
-                <div className="endpoint-node node-c"><strong>USERSRV-03</strong><span>10.0.1.15</span></div>
-                <div className="endpoint-node node-d"><strong>192.168.56.1</strong><span>Gateway</span></div>
-                <div className="endpoint-node node-e"><strong>EXTERNAL</strong><span>185.199.108.153</span></div>
+                <span className="subtle-chip">Últimos 14 dias · UTC</span>
               </div>
-            </article>
-          </div>
-        </div>
-
-        <aside className="dashboard-right">
-          <article className="panel severity-panel">
-            <h2>Threat Severity Distribution</h2>
-            <div className="donut-wrap">
-              <div className="donut-chart" style={dashboardModel.donutStyle}>
-                <span>{stats.total}</span>
-                <small>Total</small>
+              <div className="chart-summary">
+                <strong>
+                  {stats.atividade.reduce((sum, d) => sum + d.total, 0)}
+                </strong>
+                <span>incidentes registrados no período</span>
+                <span className="chart-key">
+                  <i /> Registros por dia
+                </span>
               </div>
-              <div className="severity-list">
-                {dashboardModel.severityRows.map((row) => (
-                  <div key={row.label}>
-                    <span><i className={`legend-dot ${row.className}`} /> {row.label}</span>
-                    <strong>{row.value} ({Math.round(row.percent)}%)</strong>
+              <div
+                className="bar-chart"
+                role="img"
+                aria-label={stats.atividade
+                  .map((d) => `${d.data}: ${d.total} incidentes`)
+                  .join("; ")}
+              >
+                {stats.atividade.map((day, i) => (
+                  <div className="bar-column" key={day.data}>
+                    <div className="bar-track">
+                      <div
+                        className={`chart-bar ${i === 13 ? "latest" : ""}`}
+                        style={{
+                          height: `${(day.total / max) * 100}%`,
+                          minHeight: day.total ? 4 : 0,
+                        }}
+                      >
+                        <span>{day.total}</span>
+                      </div>
+                    </div>
+                    <small>
+                      {day.data.slice(8)}/{day.data.slice(5, 7)}
+                    </small>
                   </div>
                 ))}
               </div>
-            </div>
-          </article>
-
-          <article className="panel timeline-panel">
-            <h2>Investigation Timeline</h2>
-            {primaryIncident ? (
-              <>
-                <div className="timeline-incident-card">
-                  <strong>{formatIncidentCode(primaryIncident.id)}</strong>
-                  <span>{primaryIncident.titulo}</span>
-                  <SeverityBadge severity={primaryIncident.criticidade} />
+              <p className="chart-note">
+                Contagem por data de abertura. Dias sem registros aparecem com
+                valor zero.
+              </p>
+            </article>
+            <article className="panel">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">CLASSIFICAÇÃO</p>
+                  <h2>Distribuição por criticidade</h2>
                 </div>
-                <ol className="investigation-timeline">
-                  {[
-                    ["Incident Created", statusLabels[primaryIncident.status]],
-                    ["Alert Triggered", sourceByType[primaryIncident.tipo_incidente]],
-                    ["IOC Matched", severityLabels[primaryIncident.criticidade]],
-                    ["Endpoint Involved", "WS-23-019 detected"],
-                    ["Containment Initiated", primaryIncident.envolve_dados_sensiveis ? "Sensitive data path" : "Standard playbook"],
-                    ["Investigation Ongoing", "Collecting evidence"]
-                  ].map(([title, description], index) => (
-                    <li key={title}>
-                      <span className="timeline-icon">{String(index + 1).padStart(2, "0")}</span>
-                      <div>
-                        <strong>{title}</strong>
-                        <span>{description}</span>
-                      </div>
-                      <time>{formatDateTime(primaryIncident.data_atualizacao)}</time>
-                    </li>
-                  ))}
-                </ol>
-              </>
-            ) : (
-              <p className="screen-message">No active investigation selected.</p>
-            )}
-          </article>
-        </aside>
-      </div>
+                <ShieldCheck size={19} className="muted" />
+              </div>
+              <div className="severity-overview">
+                <strong>{stats.total}</strong>
+                <span>incidentes na base</span>
+              </div>
+              <div className="distribution-track">
+                {[...severityOptions].reverse().map((s) => (
+                  <span
+                    key={s.value}
+                    className={`fill-${s.value.toLowerCase()}`}
+                    style={{
+                      width: `${stats.total ? ((stats.por_criticidade[s.value] ?? 0) / stats.total) * 100 : 0}%`,
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="severity-list">
+                {[...severityOptions].reverse().map((s) => (
+                  <Link key={s.value} to={`/incidentes?criticidade=${s.value}`}>
+                    <span>
+                      <i
+                        className={`severity-dot fill-${s.value.toLowerCase()}`}
+                      />
+                      {s.label}
+                    </span>
+                    <strong>
+                      {stats.por_criticidade[s.value] ?? 0}
+                      <small>
+                        {stats.total
+                          ? Math.round(
+                              ((stats.por_criticidade[s.value] ?? 0) /
+                                stats.total) *
+                                100,
+                            )
+                          : 0}
+                        %
+                      </small>
+                    </strong>
+                  </Link>
+                ))}
+              </div>
+            </article>
+          </div>
+          <div className="dashboard-main-grid">
+            <article className="panel recent-panel">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">ACOMPANHAMENTO</p>
+                  <h2>Incidentes recentes</h2>
+                </div>
+                <Link className="inline-action" to="/incidentes">
+                  Ver todos <ChevronRight size={16} />
+                </Link>
+              </div>
+              <div className="table-wrap embedded">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Incidente</th>
+                      <th>Criticidade</th>
+                      <th>Status</th>
+                      <th>Responsável</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.recentes.map((i) => (
+                      <tr key={i.id}>
+                        <td>
+                          <Link
+                            className="incident-title"
+                            to={`/incidentes/${i.id}`}
+                          >
+                            {i.titulo}
+                          </Link>
+                          <span className="table-subtitle">
+                            INC-{String(i.id).padStart(4, "0")} ·{" "}
+                            {incidentTypeLabels[i.tipo_incidente]}
+                          </span>
+                        </td>
+                        <td>
+                          <SeverityBadge severity={i.criticidade} />
+                        </td>
+                        <td>
+                          <StatusBadge status={i.status} />
+                        </td>
+                        <td>
+                          {i.analista_nome || (
+                            <span className="muted">Não atribuído</span>
+                          )}
+                        </td>
+                        <td>
+                          <Link
+                            className="table-action"
+                            aria-label={`Abrir ${i.titulo}`}
+                            to={`/incidentes/${i.id}`}
+                          >
+                            <ArrowUpRight size={17} />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {!stats.recentes.length && (
+                <div className="empty-state">
+                  <ShieldCheck size={30} />
+                  <h3>Sua central começa aqui</h3>
+                  <p>Os incidentes registrados aparecerão nesta visão.</p>
+                </div>
+              )}
+            </article>
+            <article className="panel">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">PRÓXIMOS PASSOS</p>
+                  <h2>Foco da equipe</h2>
+                </div>
+                <Crosshair size={19} className="muted" />
+              </div>
+              <p className="panel-description">
+                Ativos por criticidade, dos mais antigos aos mais recentes.
+              </p>
+              <div className="priority-list">
+                {stats.prioritarios.map((i, index) => (
+                  <Link key={i.id} to={`/incidentes/${i.id}`}>
+                    <span className="priority-number">0{index + 1}</span>
+                    <div>
+                      <strong>{i.titulo}</strong>
+                      <small>
+                        {i.analista_nome || "Aguardando responsável"}
+                      </small>
+                    </div>
+                    <ArrowUpRight size={16} />
+                  </Link>
+                ))}
+              </div>
+              {!stats.prioritarios.length && (
+                <div className="empty-state compact">
+                  <CheckCheck size={28} />
+                  <p>Nenhuma pendência na fila.</p>
+                </div>
+              )}
+            </article>
+          </div>
+          <div className="data-footnote">
+            <span>
+              <span className="system-pulse" /> Dados reais · acesso conforme
+              seu perfil
+            </span>
+            <span>
+              Atualizado {updated ? formatDateTime(updated.toISOString()) : ""}
+            </span>
+          </div>
+        </>
+      )}
     </section>
-  );
-}
-
-function Sparkline({ tone }: { tone: "purple" | "red" | "blue" }) {
-  return (
-    <svg className={`sparkline sparkline-${tone}`} viewBox="0 0 150 58" aria-hidden="true">
-      <polyline points="0,48 16,38 28,42 42,20 55,30 70,15 84,26 100,10 116,20 132,6 150,16" />
-    </svg>
   );
 }

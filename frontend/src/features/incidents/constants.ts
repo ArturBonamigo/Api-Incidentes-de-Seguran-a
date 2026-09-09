@@ -13,7 +13,7 @@ export const incidentTypeLabels: Record<IncidentType, string> = {
 export const statusLabels: Record<IncidentStatus, string> = {
   ABERTO: "Aberto",
   EM_TRIAGEM: "Em triagem",
-  EM_INVESTIGACAO: "Em investigacao",
+  EM_INVESTIGACAO: "Em investigação",
   CONTIDO: "Contido",
   RESOLVIDO: "Resolvido",
   FALSO_POSITIVO: "Falso positivo",
@@ -22,9 +22,9 @@ export const statusLabels: Record<IncidentStatus, string> = {
 
 export const severityLabels: Record<IncidentSeverity, string> = {
   BAIXA: "Baixa",
-  MEDIA: "Media",
+  MEDIA: "Média",
   ALTA: "Alta",
-  CRITICA: "Critica"
+  CRITICA: "Crítica"
 };
 
 export const statusOptions = Object.entries(statusLabels).map(([value, label]) => ({

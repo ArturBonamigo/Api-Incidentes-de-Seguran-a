@@ -83,7 +83,9 @@ export async function apiRequest<T>(
     const message =
       typeof data === "object" && data !== null && "detail" in data
         ? String(data.detail)
-        : "Erro ao comunicar com a API.";
+        : typeof data === "object" && data !== null
+          ? Object.entries(data).map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(' ') : String(errors)}`).join(' • ')
+          : "Erro ao comunicar com a API.";
 
     throw new ApiError(
       message,

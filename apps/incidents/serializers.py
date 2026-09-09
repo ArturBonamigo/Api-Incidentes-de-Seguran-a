@@ -4,6 +4,8 @@ from .models import Incident, IncidentComment
 
 
 class IncidentSerializer(serializers.ModelSerializer):
+    reportante_nome = serializers.CharField(source='usuario_reportante.username', read_only=True)
+    analista_nome = serializers.CharField(source='analista_responsavel.username', read_only=True, default=None)
     USER_RESTRICTED_FIELDS = {
         'status',
         'analista_responsavel',
@@ -16,6 +18,8 @@ class IncidentSerializer(serializers.ModelSerializer):
         model = Incident
         fields = (
             'id',
+            'reportante_nome',
+            'analista_nome',
             'titulo',
             'descricao',
             'tipo_incidente',

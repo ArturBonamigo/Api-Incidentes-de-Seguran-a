@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import * as incidentsApi from "../../../api/incidents.api";
 import * as timelineApi from "../../../api/timeline.api";
@@ -10,7 +10,7 @@ import { ApiError } from "../../../types/api";
 import {
   Incident,
   IncidentComment,
-  IncidentTimeline
+  IncidentTimeline,
 } from "../../../types/incident";
 import { formatDateTime } from "../../../utils/format";
 import { incidentTypeLabels, statusOptions } from "../constants";
@@ -33,8 +33,11 @@ export function IncidentDetailPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isSendingComment, setIsSendingComment] = useState(false);
   const canEditStatus =
-    user?.perfil === "ADMIN" || user?.perfil === "ANALISTA_SOC" || user?.perfil === "GESTOR";
-  const canAssignIncident = user?.perfil === "ADMIN" || user?.perfil === "ANALISTA_SOC";
+    user?.perfil === "ADMIN" ||
+    user?.perfil === "ANALISTA_SOC" ||
+    user?.perfil === "GESTOR";
+  const canAssignIncident =
+    user?.perfil === "ADMIN" || user?.perfil === "ANALISTA_SOC";
   const canComment = user?.perfil !== "AUDITOR";
 
   useEffect(() => {
@@ -52,13 +55,17 @@ export function IncidentDetailPage() {
         const [incidentData, commentsData, timelineData] = await Promise.all([
           incidentsApi.getIncident(incidentId),
           incidentsApi.listIncidentComments(incidentId),
-          timelineApi.listIncidentTimeline(incidentId)
+          timelineApi.listIncidentTimeline(incidentId),
         ]);
         setIncident(incidentData);
         setComments(commentsData);
         setTimeline(timelineData);
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : "Nao foi possivel carregar o incidente.");
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Nao foi possivel carregar o incidente.",
+        );
       } finally {
         setIsLoading(false);
       }
@@ -78,13 +85,23 @@ export function IncidentDetailPage() {
     setIsSendingComment(true);
 
     try {
-      const createdComment = await incidentsApi.createIncidentComment(incidentId, comment);
-      const updatedTimeline = await timelineApi.listIncidentTimeline(incidentId);
+      const createdComment = await incidentsApi.createIncidentComment(
+        incidentId,
+        comment,
+      );
       setComments((current) => [...current, createdComment]);
-      setTimeline(updatedTimeline);
       setComment("");
+      try {
+        setTimeline(await timelineApi.listIncidentTimeline(incidentId));
+      } catch {
+        setCommentError(
+          "Comentário salvo. Recarregue a página para atualizar o histórico.",
+        );
+      }
     } catch (err) {
-      setCommentError(err instanceof ApiError ? err.message : "Nao foi possivel comentar.");
+      setCommentError(
+        err instanceof ApiError ? err.message : "Nao foi possivel comentar.",
+      );
     } finally {
       setIsSendingComment(false);
     }
@@ -99,12 +116,24 @@ export function IncidentDetailPage() {
     setIsUpdatingStatus(true);
 
     try {
-      const updatedIncident = await incidentsApi.changeIncidentStatus(incident.id, status);
-      const updatedTimeline = await timelineApi.listIncidentTimeline(incident.id);
+      const updatedIncident = await incidentsApi.changeIncidentStatus(
+        incident.id,
+        status,
+      );
       setIncident(updatedIncident);
-      setTimeline(updatedTimeline);
+      try {
+        setTimeline(await timelineApi.listIncidentTimeline(incident.id));
+      } catch {
+        setStatusError(
+          "Status salvo. Recarregue a página para atualizar o histórico.",
+        );
+      }
     } catch (err) {
-      setStatusError(err instanceof ApiError ? err.message : "Nao foi possivel alterar o status.");
+      setStatusError(
+        err instanceof ApiError
+          ? err.message
+          : "Nao foi possivel alterar o status.",
+      );
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -120,11 +149,20 @@ export function IncidentDetailPage() {
 
     try {
       const updatedIncident = await incidentsApi.assignIncident(incident.id);
-      const updatedTimeline = await timelineApi.listIncidentTimeline(incident.id);
       setIncident(updatedIncident);
-      setTimeline(updatedTimeline);
+      try {
+        setTimeline(await timelineApi.listIncidentTimeline(incident.id));
+      } catch {
+        setStatusError(
+          "Responsável salvo. Recarregue a página para atualizar o histórico.",
+        );
+      }
     } catch (err) {
-      setStatusError(err instanceof ApiError ? err.message : "Nao foi possivel assumir o incidente.");
+      setStatusError(
+        err instanceof ApiError
+          ? err.message
+          : "Nao foi possivel assumir o incidente.",
+      );
     } finally {
       setIsAssigning(false);
     }
@@ -140,6 +178,9 @@ export function IncidentDetailPage() {
 
   return (
     <section className="page-stack">
+      <Link className="detail-back" to="/incidentes">
+        ← Voltar para incidentes
+      </Link>
       <div className="page-header">
         <div>
           <p className="eyebrow">Incidente #{incident.id}</p>
@@ -157,23 +198,26 @@ export function IncidentDetailPage() {
             {isAssigning ? "Assumindo..." : "Assumir incidente"}
           </Button>
         ) : null}
-        <span>Reportante #{incident.usuario_reportante}</span>
         <span>
-          Analista {incident.analista_responsavel ? `#${incident.analista_responsavel}` : "nao atribuido"}
+          Reportado por{" "}
+          {incident.reportante_nome || `#${incident.usuario_reportante}`}
         </span>
+        <span>Responsável: {incident.analista_nome || "não atribuído"}</span>
       </div>
 
       <div className="detail-grid">
         <article className="panel">
           <h2>Resumo</h2>
-          <p>{incident.descricao}</p>
+          <p className="detail-description">{incident.descricao}</p>
           {canEditStatus ? (
             <div className="status-editor">
               <Field label="Status">
                 <Select
                   disabled={isUpdatingStatus}
                   value={incident.status}
-                  onChange={(event) => handleStatusChange(event.target.value as Incident["status"])}
+                  onChange={(event) =>
+                    handleStatusChange(event.target.value as Incident["status"])
+                  }
                 >
                   {statusOptions.map((status) => (
                     <option key={status.value} value={status.value}>
@@ -195,22 +239,32 @@ export function IncidentDetailPage() {
               <dd>{incident.impacto}</dd>
             </div>
             <div>
-              <dt>Urgencia</dt>
+              <dt>Urgência</dt>
               <dd>{incident.urgencia}</dd>
             </div>
             <div>
-              <dt>Dados sensiveis</dt>
-              <dd>{incident.envolve_dados_sensiveis ? "Sim" : "Nao"}</dd>
+              <dt>Dados sensíveis</dt>
+              <dd>{incident.envolve_dados_sensiveis ? "Sim" : "Não"}</dd>
             </div>
             <div>
               <dt>Abertura</dt>
               <dd>{formatDateTime(incident.data_abertura)}</dd>
             </div>
+            <div>
+              <dt>Última atualização</dt>
+              <dd>{formatDateTime(incident.data_atualizacao)}</dd>
+            </div>
+            {incident.data_fechamento && (
+              <div>
+                <dt>Fechamento</dt>
+                <dd>{formatDateTime(incident.data_fechamento)}</dd>
+              </div>
+            )}
           </dl>
         </article>
 
         <aside className="panel">
-          <h2>Timeline</h2>
+          <h2>Histórico da investigação</h2>
           <ol className="timeline">
             {timeline.map((item) => (
               <li key={item.id}>
@@ -219,11 +273,20 @@ export function IncidentDetailPage() {
               </li>
             ))}
           </ol>
+          {!timeline.length && (
+            <p className="muted">Nenhum evento registrado.</p>
+          )}
         </aside>
       </div>
 
       <section className="panel">
-        <h2>Comentarios</h2>
+        <h2>Notas da investigação · {comments.length}</h2>
+        {!comments.length && (
+          <p className="panel-description">
+            Registre evidências, decisões e próximos passos para manter a equipe
+            alinhada.
+          </p>
+        )}
         <div className="comment-list">
           {comments.map((item) => (
             <article key={item.id} className="comment">
@@ -239,17 +302,23 @@ export function IncidentDetailPage() {
           {canComment ? (
             <>
               <TextArea
+                aria-label="Nova nota da investigação"
                 rows={3}
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
-                placeholder="Adicionar comentario"
+                placeholder="Compartilhe uma evidência, atualização ou próximo passo…"
               />
-              <Button type="submit" disabled={isSendingComment}>
+              <Button
+                type="submit"
+                disabled={isSendingComment || !comment.trim()}
+              >
                 {isSendingComment ? "Enviando..." : "Comentar"}
               </Button>
             </>
           ) : (
-            <p className="screen-message">Auditores possuem acesso somente leitura.</p>
+            <p className="screen-message">
+              Auditores possuem acesso somente leitura.
+            </p>
           )}
         </form>
       </section>

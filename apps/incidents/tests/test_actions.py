@@ -120,3 +120,26 @@ class IncidentActionsAndPermissionsTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('status', response.data)
+
+    def test_estatisticas_respeitam_incidentes_acessiveis(self):
+        Incident.objects.create(
+            titulo='Incidente de outro usuario',
+            descricao='Evento que nao pertence ao usuario comum.',
+            tipo_incidente=Incident.TipoIncidente.MALWARE,
+            impacto=4,
+            urgencia=4,
+            usuario_reportante=self.outro_usuario,
+        )
+
+        self.client.force_authenticate(user=self.usuario_comum)
+        response = self.client.get('/api/incidentes/estatisticas/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total'], 1)
+        self.assertEqual(response.data['abertos'], 1)
+
+        self.client.force_authenticate(user=self.gestor)
+        response = self.client.get('/api/incidentes/estatisticas/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total'], 2)

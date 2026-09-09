@@ -19,6 +19,8 @@ export type IncidentStatus =
 export type IncidentSeverity = "BAIXA" | "MEDIA" | "ALTA" | "CRITICA";
 
 export type Incident = {
+  reportante_nome: string;
+  analista_nome: string | null;
   id: number;
   titulo: string;
   descricao: string;
@@ -46,6 +48,8 @@ export type IncidentCreateRequest = {
 };
 
 export type IncidentFilters = {
+  fila?: 'ativos' | 'meus' | 'nao_atribuidos';
+  page?: number;
   search?: string;
   status?: IncidentStatus;
   criticidade?: IncidentSeverity;
@@ -86,6 +90,11 @@ export type IncidentTimeline = {
 };
 
 export type IncidentStats = {
+  criticos_ativos: number;
+  ativos_nao_atribuidos: number;
+  por_tipo: Partial<Record<IncidentType, number>>;
+  atividade: { data: string; total: number }[];
+  prioritarios: Incident[];
   total: number;
   abertos: number;
   encerrados: number;

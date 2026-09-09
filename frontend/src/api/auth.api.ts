@@ -6,14 +6,8 @@ import {
   RegisterRequest,
   User
 } from "../types/auth";
-import { PaginatedResponse } from "../types/api";
 import { apiRequest } from "./httpClient";
-
-type ListResponse<T> = T[] | PaginatedResponse<T>;
-
-function normalizeList<T>(response: ListResponse<T>) {
-  return Array.isArray(response) ? response : response.results;
-}
+import { loadAllPages } from "./pagination";
 
 export function login(payload: LoginRequest) {
   return apiRequest<LoginResponse>("/auth/login/", {
@@ -43,8 +37,7 @@ export function createEmployee(payload: EmployeeCreateRequest) {
 }
 
 export async function listUsers() {
-  const response = await apiRequest<ListResponse<User>>("/users/");
-  return normalizeList(response);
+  return loadAllPages<User>("/users/");
 }
 
 export function updateUser(id: number, payload: EmployeeUpdateRequest) {

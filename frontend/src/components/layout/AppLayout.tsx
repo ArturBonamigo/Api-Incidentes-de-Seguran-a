@@ -1,96 +1,144 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { FormEvent, useState } from "react";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  Bell,
-  ChevronDown,
+  ArrowUpRight,
   ClipboardList,
   LayoutDashboard,
+  LogOut,
   Menu,
-  MessageSquare,
-  PlusSquare,
+  Plus,
   Search,
   ShieldCheck,
-  Users
+  Users,
+  X,
 } from "lucide-react";
-
 import { useAuth } from "../../auth/useAuth";
-
 export function AppLayout() {
   const { logout, user } = useAuth();
-  const isAdmin = user?.perfil === "ADMIN";
-  const profileLabel = user?.perfil?.replaceAll("_", " ") ?? "Operador";
-
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  function submitSearch(event: FormEvent) {
+    event.preventDefault();
+    navigate(
+      "/incidentes?" +
+        new URLSearchParams(search.trim() ? { search: search.trim() } : {}),
+    );
+    setSearch("");
+  }
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <a className="skip-link" href="#main-content">
+        Pular para o conteúdo
+      </a>
+      <aside className={`sidebar ${menuOpen ? "is-open" : ""}`}>
         <Link className="brand" to="/dashboard">
-          <span className="brand-mark" aria-hidden="true"><ShieldCheck size={21} strokeWidth={1.8} /></span>
-          <span>Cyber Sentinel</span>
+          <span className="brand-mark">
+            <ShieldCheck size={24} />
+          </span>
+          <span>
+            sentinel<span className="brand-subtitle">SECURITY OPERATIONS</span>
+          </span>
         </Link>
-        <nav className="nav-list" aria-label="Navegacao principal">
+        <p className="nav-caption">WORKSPACE</p>
+        <nav
+          className="nav-list"
+          aria-label="Navegação principal"
+          onClick={() => setMenuOpen(false)}
+        >
           <NavLink to="/dashboard">
-            <span className="nav-icon" aria-hidden="true"><LayoutDashboard size={18} /></span>
-            Dashboard
+            <LayoutDashboard size={18} />
+            Visão geral
           </NavLink>
-          <NavLink to="/incidentes">
-            <span className="nav-icon" aria-hidden="true"><ClipboardList size={18} /></span>
-            Painel
+          <NavLink to="/incidentes" end>
+            <ClipboardList size={18} />
+            Incidentes
           </NavLink>
-          <NavLink to="/incidentes/novo">
-            <span className="nav-icon" aria-hidden="true"><PlusSquare size={18} /></span>
-            Novo incidente
-          </NavLink>
-          {isAdmin ? (
-            <NavLink to="/funcionarios">
-              <span className="nav-icon" aria-hidden="true"><Users size={18} /></span>
-              Funcionarios
+          {user?.perfil !== "AUDITOR" && (
+            <NavLink to="/incidentes/novo">
+              <Plus size={18} />
+              Registrar incidente
             </NavLink>
-          ) : null}
+          )}
+          {user?.perfil === "ADMIN" && (
+            <NavLink to="/funcionarios">
+              <Users size={18} />
+              Equipe
+            </NavLink>
+          )}
         </nav>
-        <div className="system-card" aria-label="Status do sistema">
-          <span className="system-pulse" aria-hidden="true" />
+        <div className="sidebar-note">
+          <span className="mini-orbit">
+            <ShieldCheck size={23} />
+          </span>
+          <strong>Clareza para agir.</strong>
+          <p>
+            Centralize a investigação. Conecte os fatos. Responda com confiança.
+          </p>
+          <Link to="/incidentes?fila=nao_atribuidos">
+            Revisar fila de triagem <ArrowUpRight size={15} />
+          </Link>
+        </div>
+        <div className="workspace-label">
+          <span className="workspace-icon">S</span>
           <div>
-            <strong>Sistemas operacionais</strong>
-            <span>Monitoramento ativo</span>
+            <strong>Central de segurança</strong>
+            <small>Gestão de incidentes</small>
           </div>
+          <span className="version">v1.0</span>
         </div>
       </aside>
-
       <div className="main-column">
         <header className="topbar">
-          <div className="topbar-search">
-            <button className="icon-button" type="button" aria-label="Abrir menu">
-              <Menu size={19} aria-hidden="true" />
-            </button>
+          <button
+            className="icon-button mobile-menu"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={menuOpen}
+          >
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          <span className="breadcrumb">
+            Workspace <span>/</span> Central de segurança
+          </span>
+          <form className="topbar-search" onSubmit={submitSearch}>
             <label className="search-field">
-              <Search size={16} aria-hidden="true" />
-              <input placeholder="Search incidents, threats, assets, IPs..." type="search" />
-            </label>
-          </div>
-          <div className="topbar-actions">
-            <button className="icon-button has-alert" type="button" aria-label="Notificacoes">
-              <Bell size={18} aria-hidden="true" />
-            </button>
-            <button className="icon-button" type="button" aria-label="Mensagens">
-              <MessageSquare size={18} aria-hidden="true" />
-            </button>
-            <span className="operator-avatar" aria-hidden="true">
-              {(user?.username?.[0] ?? "S").toUpperCase()}
-            </span>
-            <div className="operator-card">
-              <div>
-                <strong>{user?.username}</strong>
-                <span>{profileLabel}</span>
-              </div>
-              <button className="button button-ghost" type="button" onClick={logout}>
-                Sair
+              <Search size={17} />
+              <input
+                aria-label="Buscar incidentes"
+                placeholder="Buscar incidentes…"
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <button type="submit" aria-label="Pesquisar">
+                ↵
               </button>
-              <ChevronDown size={15} aria-hidden="true" />
-            </div>
+            </label>
+          </form>
+          <span className="operator-avatar">
+            {(user?.username?.[0] ?? "S").toUpperCase()}
+          </span>
+          <div className="operator-card">
+            <strong>{user?.username}</strong>
+            <span>{user?.perfil?.replaceAll("_", " ")}</span>
           </div>
+          <button
+            className="icon-button"
+            onClick={logout}
+            aria-label="Sair da conta"
+            title="Sair da conta"
+          >
+            <LogOut size={17} />
+          </button>
         </header>
-        <main className="content">
+        <main className="content" id="main-content">
           <Outlet />
         </main>
+        <footer className="app-footer">
+          <span>Sentinel · Central de operações de segurança</span>
+          <span>Investigue. Colabore. Resolva.</span>
+        </footer>
       </div>
     </div>
   );

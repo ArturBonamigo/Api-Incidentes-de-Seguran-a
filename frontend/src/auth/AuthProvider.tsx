@@ -1,5 +1,4 @@
 import {
-  createContext,
   ReactNode,
   useCallback,
   useEffect,
@@ -10,17 +9,7 @@ import {
 import * as authApi from "../api/auth.api";
 import { clearTokens, getAccessToken, setTokens } from "../api/tokenStorage";
 import { LoginRequest, User } from "../types/auth";
-
-type AuthContextValue = {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (payload: LoginRequest) => Promise<void>;
-  logout: () => void;
-  reloadUser: () => Promise<void>;
-};
-
-export const AuthContext = createContext<AuthContextValue | null>(null);
+import { AuthContext } from "./AuthContext";
 
 type AuthProviderProps = {
   children: ReactNode;

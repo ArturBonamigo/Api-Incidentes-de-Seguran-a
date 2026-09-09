@@ -1,6 +1,11 @@
 from rest_framework import generics, permissions, viewsets
 
-from .serializers import UserRegisterSerializer, UserSerializer, UserAdminSerializer
+from .serializers import (
+    EmployeeCreateSerializer,
+    UserAdminSerializer,
+    UserRegisterSerializer,
+    UserSerializer,
+)
 from .models import User
 from .permissions import IsAdminProfile
 
@@ -20,4 +25,9 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserAdminSerializer
     permission_classes = [IsAdminProfile]
-    http_method_names = ['get', 'patch', 'head', 'options']
+    http_method_names = ['get', 'post', 'patch', 'head', 'options']
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return EmployeeCreateSerializer
+        return UserAdminSerializer

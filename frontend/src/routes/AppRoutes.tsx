@@ -23,6 +23,7 @@ export function AppRoutes() {
           <Route path="/incidentes/novo" element={<NewIncidentPage />} />
           <Route path="/incidentes/:id" element={<IncidentDetailPage />} />
           <Route path="/funcionarios" element={<EmployeeCreatePage />} />
+          <Route path="*" element={<section className="empty-state"><h1>Página não encontrada</h1><p>Confira o endereço ou use a navegação para continuar.</p><a className="button button-primary" href="/dashboard">Voltar à visão geral</a></section>} />
         </Route>
       </Route>
     </Routes>

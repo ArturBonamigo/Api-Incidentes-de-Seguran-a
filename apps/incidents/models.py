@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 # Criar modelo de incidente
 
@@ -87,6 +88,12 @@ class Incident(models.Model):
 
     def save(self, *args, **kwargs):
         self.criticidade = self.calcular_criticidade()
+        if self.status in [self.Status.RESOLVIDO, self.Status.FALSO_POSITIVO, self.Status.CANCELADO]:
+            self.data_fechamento = self.data_fechamento or timezone.now()
+        else:
+            self.data_fechamento = None
+        if kwargs.get('update_fields') is not None:
+            kwargs['update_fields'] = set(kwargs['update_fields']) | {'criticidade', 'data_fechamento'}
         super().save(*args, **kwargs)
 
     def __str__(self):

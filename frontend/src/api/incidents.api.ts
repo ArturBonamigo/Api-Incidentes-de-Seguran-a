@@ -10,6 +10,7 @@ import {
   IncidentStatus
 } from "../types/incident";
 import { apiRequest } from "./httpClient";
+import { loadAllPages } from "./pagination";
 
 type ListResponse<T> = T[] | PaginatedResponse<T>;
 
@@ -35,6 +36,26 @@ export async function listIncidents(filters?: IncidentFilters) {
     `/incidentes/${query ? `?${query}` : ""}`
   );
   return normalizeList(response);
+}
+
+export async function getIncidentPage(filters: IncidentFilters = {}) {
+  const response = await apiRequest<ListResponse<Incident>>(`/incidentes/?${toSearchParams(filters)}`);
+  return Array.isArray(response)
+    ? { count: response.length, results: response, next: null, previous: null }
+    : response;
+}
+
+export async function exportIncidents(filters: IncidentFilters) {
+  const rows: Incident[] = [];
+  let page = 1;
+  let more = true;
+  while (more) {
+    const response = await getIncidentPage({ ...filters, page });
+    rows.push(...response.results);
+    more = Boolean(response.next);
+    page += 1;
+  }
+  return rows;
 }
 
 export function getIncident(id: number) {
@@ -73,10 +94,9 @@ export function changeIncidentStatus(id: number, status: IncidentStatus) {
 }
 
 export async function listIncidentComments(id: number) {
-  const response = await apiRequest<ListResponse<IncidentComment>>(
+  return loadAllPages<IncidentComment>(
     `/incidentes/${id}/comentarios/`
   );
-  return normalizeList(response);
 }
 
 export function createIncidentComment(id: number, comentario: string) {

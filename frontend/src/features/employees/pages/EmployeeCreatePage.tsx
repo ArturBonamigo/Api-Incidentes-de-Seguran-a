@@ -141,7 +141,8 @@ export function EmployeeCreatePage() {
       <div className="page-header">
         <div>
           <p className="eyebrow">Administracao</p>
-          <h1>Funcionarios</h1>
+          <h1>Equipe<span className="heading-dot">.</span></h1>
+          <p>Gerencie as pessoas e os perfis de acesso da sua operação.</p>
         </div>
       </div>
 
@@ -268,7 +269,8 @@ export function EmployeeCreatePage() {
                     </td>
                     <td>
                       <Select
-                        disabled={isUpdating}
+                        disabled={isUpdating || isCurrentUser}
+                        aria-label={`Perfil de ${employee.username}`}
                         value={employee.perfil}
                         onChange={(event) =>
                           handleProfileChange(employee, event.target.value as UserProfile)
